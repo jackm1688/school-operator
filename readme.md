@@ -20,6 +20,7 @@ Operator使用SDK在用户自定义的处理程序中以高级API处理监视资
 
 <br>
 =================================================================================================<br>
+mkdir proejcts && cd projects <br>
 1.创建一个学校仓库 <br>
 operator-sdk new school-operator --repo=github.com/school/school-operator<br>
 cd school-operator<br>
