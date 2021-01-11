@@ -1,8 +1,8 @@
 原始状态信息:<br>
-![Image text] (https://github.com/jackm1688/school-operator/blob/main/001.jpg) <br>
+![Image text] (https://github.com/jackm1688/school-operator/blob/main/001.jpg)
 更新之后的状态信息:<br>
-![Image text] (https://github.com/jackm1688/school-operator/blob/main//002.jpg)<br>
-![Image text] (https://github.com/jackm1688/school-operator/blob/main//003.jpg)<br>
+![Image text] (https://github.com/jackm1688/school-operator/blob/main//002.jpg)
+![Image text] (https://github.com/jackm1688/school-operator/blob/main//003.jpg)
 
 使用测试用例代码:<br>
 
