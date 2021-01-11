@@ -1,0 +1,434 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>operator: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/school/school-operator/operator/app.go (10.9%)</option>
+				
+				<option value="file1">github.com/school/school-operator/operator/cmd.go (84.0%)</option>
+				
+				<option value="file2">github.com/school/school-operator/operator/cmd_dir_init.go (100.0%)</option>
+				
+				<option value="file3">github.com/school/school-operator/operator/cr.go (87.0%)</option>
+				
+				<option value="file4">github.com/school/school-operator/operator/util.go (76.9%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package operator
+
+import (
+        "fmt"
+)
+
+//operator-sdk控制器的操作对象
+
+const (
+        F1 = "deploy/service_account.yaml"
+        F2 = "deploy/role.yaml"
+        F3 = "deploy/role_binding.yaml"
+        F4 = "deploy/operator.yaml"
+        F5 = "deploy/crds/school.crd.io_classes_crd.yaml"
+)
+
+type App struct {
+        Repo    string
+        AppName string
+        Version string
+}
+
+// BuildImageAndPush 镜像构建推送到镜像仓库
+func (app *App) BuildImageAndPush() (error, string) <span class="cov8" title="1">{
+        imageName := fmt.Sprintf("%s/%s:%s", app.Repo, app.AppName, app.Version)
+        err := execCmd(opSdk, "build", imageName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err, imageName
+        }</span>
+        <span class="cov8" title="1">err = execCmd(docker, "push", imageName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err, imageName
+        }</span>
+        <span class="cov8" title="1">return nil, imageName</span>
+}
+
+func (app *App) UpdateImge() (error, string) <span class="cov0" title="0">{
+        imageName := fmt.Sprintf("%s/%s:%s", app.Repo, app.AppName, app.Version)
+        _, srcIm := ReadImage()
+        if srcIm == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("get image failed"), imageName
+        }</span>
+        <span class="cov0" title="0">return replaceImage(srcIm, imageName), imageName</span>
+}
+
+//部署operator controller
+func (app *App) InstallApp() (err error) <span class="cov0" title="0">{
+
+        if err = execCmd(kubelet, "apply", "-f", F1); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "apply", "-f", F2); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "apply", "-f", F3); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "apply", "-f", F5); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "apply", "-f", F4); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+//卸载operator controller
+func (app *App) UninstallApp() (err error) <span class="cov0" title="0">{
+
+        if err = execCmd(kubelet, "delete", "-f", F1); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "delete", "-f", F2); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "delete", "-f", F3); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "delete", "-f", F5); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "delete", "-f", F4); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+//获取operator controller 状态
+func (app *App) CheckStatusForApp() (err error) <span class="cov0" title="0">{
+
+        if err = execCmd(kubelet, "get", "-f", F1); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "get", "-f", F2); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "get", "-f", F3); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "get", "-f", F4); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+//更新operator controller
+func (app *App) UpdateFormOperatorDeployApp(dstImage string) error <span class="cov0" title="0">{
+        _, srcImage := ReadImage()
+        var err error
+        if srcImage != "" &amp;&amp; dstImage != "" </span><span class="cov0" title="0">{
+                err = replaceImage(srcImage, dstImage)
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "delete", "-f", F4); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err = execCmd(kubelet, "apply", "-f", F4); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package operator
+
+import (
+        "bytes"
+        "fmt"
+        "io/ioutil"
+        "os"
+        "os/exec"
+        "regexp"
+        "strings"
+        "time"
+)
+
+var (
+        opSdk   = "/usr/local/bin/operator-sdk"
+        docker  = "/usr/local/bin/docker"
+        kubelet = "/usr/local/bin/kubectl"
+        sed     = "/usr/bin/sed"
+)
+
+//镜像替换
+func replaceImage(srcImage string, dstImage string) error <span class="cov0" title="0">{
+        //sed -i "" 's|REPLACE_IMAGE|quay.io/example/memcached-operator:v0.0.1|g' deploy/operator.yaml
+        r := fmt.Sprintf(`'s|%s|%s|g'`, srcImage, dstImage)
+        return execCmd(sed, "-i", `""`, r, "deploy/operator.yaml")
+}</span>
+
+//获取operator.yaml中镜像信息
+func ReadImage() (error, string) <span class="cov8" title="1">{
+        data, err := ioutil.ReadFile("deploy/operator.yaml")
+        if err != nil </span><span class="cov0" title="0">{
+                return err, ""
+        }</span>
+        <span class="cov8" title="1">r := regexp.MustCompile(`image:\s+(.*)`)
+        v := r.FindAllString(string(data), 1)
+        s := ""
+        if len(v) &gt; 0 </span><span class="cov8" title="1">{
+                s = strings.TrimSpace(strings.Split(v[0], " ")[1])
+        }</span>
+        <span class="cov8" title="1">return nil, s</span>
+
+}
+
+//执行命令
+func execCmd(c string, args ...string) error <span class="cov8" title="1">{
+        dir, _ := os.Getwd()
+        fmt.Println("--------current dir:", dir, "------------")
+        var stdout bytes.Buffer
+        var stderr bytes.Buffer
+
+        cmd := exec.Command(c, args...)
+        cmd.Stdout = &amp;stdout
+        cmd.Stderr = &amp;stderr
+        if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("can't start for the %s cmd,err:%v", opSdk, err)
+        }</span>
+
+        <span class="cov8" title="1">time.Sleep(5 * time.Second)
+        if err := cmd.Wait(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("can't wait for the %s, err:%v", opSdk, err)
+        }</span>
+        <span class="cov8" title="1">fmt.Println(stdout.String())
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package operator
+
+import "os"
+
+func init() <span class="cov8" title="1">{
+        _ = os.Chdir("../")
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package operator
+
+import (
+        "io/ioutil"
+
+        "github.com/school/school-operator/models"
+
+        "gopkg.in/yaml.v2"
+)
+
+//对cr资源的操作
+type CR struct {
+        YamlFileName string
+        Stu          *models.Student
+}
+
+// 生成stu yaml文件
+func (cr *CR) GenYAMLFile() error <span class="cov8" title="1">{
+        out, err := yaml.Marshal(cr.Stu)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return ioutil.WriteFile(cr.YamlFileName, out, 0755)</span>
+}
+
+// create cr resource
+func (cr *CR) CreateCR() error <span class="cov8" title="1">{
+        return execCmd(kubelet, "create", "-f", cr.YamlFileName)
+}</span>
+
+// update cr resource
+func (cr *CR) UpdateCR() error <span class="cov8" title="1">{
+        _ = cr.GenYAMLFile()
+        return execCmd(kubelet, "apply", "-f", cr.YamlFileName)
+}</span>
+
+// delete resource
+func (cr *CR) DeleteCR() error <span class="cov8" title="1">{
+        return execCmd(kubelet, "delete", "-f", cr.YamlFileName)
+}</span>
+
+// get cr resource
+func (cr *CR) GetCR() error <span class="cov8" title="1">{
+        return execCmd(kubelet, "get", "-f", cr.YamlFileName)
+}</span>
+
+// sclae cr resource
+func (cr *CR) ScaleCR(replicas int) error <span class="cov8" title="1">{
+        cr.Stu.Spec.Replicas = replicas
+        _ = cr.GenYAMLFile()
+        return execCmd(kubelet, "apply", "-f", cr.YamlFileName)
+}</span>
+
+//kubectl describe class student
+func (cr *CR) Describe() error <span class="cov8" title="1">{
+        return execCmd(kubelet, "describe", cr.Stu.Kind, cr.Stu.Metadata.Name)
+}</span>
+
+//可以使用go-client客户来搞哈，目前先用命令+api接口来实现
+func (cr *CR) CustomeScaleAndCheckResult(replicas int) error <span class="cov8" title="1">{
+        cr.Stu.Spec.Replicas = replicas
+        _ = cr.GenYAMLFile()
+        err := execCmd(kubelet, "apply", "-f", cr.YamlFileName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (cr *CR) GetStatus() (error, *models.ClassStatus) <span class="cov8" title="1">{
+        err, res := GetClassStatus()
+        if err != nil </span><span class="cov0" title="0">{
+                return err, nil
+        }</span>
+        <span class="cov8" title="1">return nil, &amp;res.Items[0].Status</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package operator
+
+import (
+        "encoding/json"
+        "net/http"
+
+        "github.com/school/school-operator/models"
+)
+
+var ClassUrl = "http://192.168.0.80:8080/apis/school.crd.io/v1/classes"
+
+func GetClassStatus() (error, *models.Classes) <span class="cov8" title="1">{
+
+        request, err := http.NewRequest(http.MethodGet, ClassUrl, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return err, nil
+        }</span>
+
+        <span class="cov8" title="1">client := http.Client{}
+        resp, err := client.Do(request)
+        if err != nil </span><span class="cov0" title="0">{
+                return err, nil
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        res := models.Classes{}
+        err = json.NewDecoder(resp.Body).Decode(&amp;res)
+        if err != nil </span><span class="cov0" title="0">{
+                return err, nil
+        }</span>
+        <span class="cov8" title="1">return nil, &amp;res</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

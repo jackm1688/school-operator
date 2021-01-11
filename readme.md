@@ -1,3 +1,12 @@
+原始状态信息:<br>
+<img src="001.jpg"><br>
+更新之后的状态信息:<br>
+<img src="002.jpg"><br>
+<img src="003.jpg"><br>
+
+使用测试用例代码:<br>
+
+
 operator-sdk命令介绍:<br>
 operator-sdk add [api|controller]命令将控制器或资源添加到项目中。该命令必须从Operator项目的根目录运行。 <br>
 operator-sdk build 命令编译代码并生成可执行文件<br>

@@ -1,13 +1,11 @@
-package test
+package operator
 
 import (
 	"testing"
-
-	"github.com/school/school-operator/operator"
 )
 
 func TestGetClassStaus(t *testing.T) {
-	err, res := operator.GetClassStatus()
+	err, res := GetClassStatus()
 	if err != nil {
 		t.Error(err)
 	}

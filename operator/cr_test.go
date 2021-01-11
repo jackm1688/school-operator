@@ -1,14 +1,13 @@
-package test
+package operator
 
 import (
 	"testing"
 	"time"
 
 	"github.com/school/school-operator/models"
-	"github.com/school/school-operator/operator"
 )
 
-func GetCRFile() *operator.CR {
+func GetCRFile() *CR {
 	st := models.Student{
 		ApiVersion: "school.crd.io/v1",
 		Kind:       "Class",
@@ -23,7 +22,7 @@ func GetCRFile() *operator.CR {
 		},
 	}
 
-	cr := operator.CR{
+	cr := CR{
 		YamlFileName: "student_cr.yaml",
 		Stu:          &st,
 	}

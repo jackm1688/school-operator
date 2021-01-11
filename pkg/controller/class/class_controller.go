@@ -3,6 +3,7 @@ package class
 import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
+	"sort"
 
 	"context"
 	"fmt"
@@ -166,9 +167,9 @@ func (r *ReconcileClass) Reconcile(request reconcile.Request) (reconcile.Result,
 		Replicas: len(existingPodNames),
 		Status: GetStatus(len(existingPodNames)),
 	}
-
+	sort.Strings(instance.Status.PodNames)
+	sort.Strings(status.PodNames)
 	reqLogger.Info("instance podStatus","status",instance.Status)
-
 	//对比两个状态是否一致，如果不一致则进行更新
 	if !reflect.DeepEqual(instance.Status, status) {
 		reqLogger.Info("更新pod的状态","status",status)
@@ -183,14 +184,13 @@ func (r *ReconcileClass) Reconcile(request reconcile.Request) (reconcile.Result,
 	reqLogger.Info("instance.Spec.Replicas","replicas",
 		instance.Spec.Replicas,"existingPodNames replicas",len(existingPodNames))
 	if len(existingPodNames) > int(*instance.Spec.Replicas) {
-		return r.scaleDown(len(existingPodNames),int(*instance.Spec.Replicas),existingPods,reqLogger)
+		return r.scaleDown(len(existingPodNames),int(*instance.Spec.Replicas),existingPods,reqLogger,instance,&request)
 	}
 
 	//len(pod)<运行中的len(pod.replace)，期望值大，需要scale up create
 	if len(existingPodNames) < int(*instance.Spec.Replicas){
 		return r.scaleUp(existingPodNames,instance,&request,reqLogger)
 	}
-
 	return reconcile.Result{}, nil
 }
 
@@ -202,41 +202,69 @@ func (r *ReconcileClass) scaleUp(existingPodNames []string,instance *schoolv1.Cl
 		reqLogger.Info("正在创建Pod,当前的podnames和期望的Replicas:", "existingPodNames",existingPodNames,
 			"Spec.Replicas",instance.Spec.Replicas)
 		deploy := &appsv1.Deployment{}
-		if err := r.client.Get(context.TODO(), request.NamespacedName, deploy); err != nil && errors.IsNotFound(err) {
+        //err != nil && errors.IsNotFound(err)
+		if err := r.client.Get(context.TODO(), request.NamespacedName,deploy); err == nil  {
 			//创建 Deploy
-			return r.createDeploy(instance)
-		}
-		// Pod already exists - don't requeue
-		reqLogger.Info("Skip reconcile: deploy already exists",
-			"deploy.Namespace", deploy.Namespace, "Pod.Name", deploy.Name)
+			return r.updateDeploy(instance)
+		}/*else{
+			data,_ := json.Marshal(deploy)
+			fmt.Printf("%s\n",string(data))
+		}*/
 	}
 	return reconcile.Result{},nil
 }
 
 //scale len(pod)>运行中的len(pod.replace)，期望值小，需要scale down
 func (r *ReconcileClass)scaleDown(exitsSize int,sepcReplics int,existingPods *corev1.PodList,
-	reqLogger logr.Logger) (reconcile.Result, error) {
+	reqLogger logr.Logger,instance *schoolv1.Class,request *reconcile.Request) (reconcile.Result, error) {
 	if exitsSize > sepcReplics {
 		//delete
 		pod := existingPods.Items[0]
 		reqLogger.Info("正在删除Pod,当前的podnames和期望的Replicas:",
-			"exitsPod",pod, "Spec.Replicas",sepcReplics)
+			"exitsPod",pod.Name, "Spec.Replicas",sepcReplics)
 		err := r.client.Delete(context.TODO(), &pod)
 		if err != nil {
 			reqLogger.Error(err, "删除pod失败")
 			return reconcile.Result{}, err
 		}
+		deploy := &appsv1.Deployment{}
+		//err != nil && errors.IsNotFound(err)
+		if err := r.client.Get(context.TODO(), request.NamespacedName,deploy); err == nil  {
+			//创建 Deploy
+			//*instance.Spec.Replicas = *instance.Spec.Replicas -1
+			return r.updateDeploy(instance)
+		}
+		//r.updateDeploy()
 	}
 	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileClass) createDeploy(instance *schoolv1.Class) (reconcile.Result, error)  {
-
 	deploy := NewDeploy(instance)
 	if err := r.client.Create(context.TODO(), deploy); err != nil {
 		return reconcile.Result{}, err
 	}
 	//关联 Annotations
+	data, _ := json.Marshal(instance.Spec)
+	if instance.Annotations != nil {
+		instance.Annotations["spec"] = string(data)
+	} else {
+		instance.Annotations = map[string]string{"spec": string(data)}
+	}
+	if err := r.client.Update(context.TODO(), instance); err != nil {
+		return reconcile.Result{}, nil
+	}
+	return reconcile.Result{}, nil
+}
+
+
+
+func (r *ReconcileClass) updateDeploy(instance *schoolv1.Class) (reconcile.Result, error)  {
+	deploy := NewDeploy(instance)
+	if err := r.client.Update(context.TODO(), deploy); err != nil {
+		return reconcile.Result{}, err
+	}
+	//关联 Annotations(重复代码，后面优化掉)
 	data, _ := json.Marshal(instance.Spec)
 	if instance.Annotations != nil {
 		instance.Annotations["spec"] = string(data)

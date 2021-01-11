@@ -16,7 +16,7 @@ spec:
       containers:
         - name: school-operator
           # Replace this with the built image name
-          image: gdsz.harbor.com/library/school-operator:v1
+          image: REPLACE_IMAGE
           command:
           - school-operator
           imagePullPolicy: Always
