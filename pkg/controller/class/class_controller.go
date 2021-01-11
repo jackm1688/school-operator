@@ -1,17 +1,17 @@
 package class
 
 import (
-	"context"
-	"fmt"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"reflect"
-
+	"context"
+	"fmt"
 	schoolv1 "github.com/school/school-operator/pkg/apis/school/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -33,16 +33,18 @@ import (
 
 var log = logf.Log.WithName("controller_class")
 
+const CLASS_SIZE int32 = 10 //默认班级人数容量
 // GetStatus 获取更新状态
 func GetStatus(size int) string  {
 	switch  {
-	case size == 50:
+	case size == 10:
 		return "Ready"
-	case size <50:
+	case size <10:
 		return "NotReady"
-	case size > 50:
+	case size > 10:
 		return "Error"
 	}
+	return "Unknown"
 }
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -123,26 +125,21 @@ func (r *ReconcileClass) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
+	label := labels.Set{"app": instance.Name}
 
-	lbls := labels.Set{
-		"app": instance.Name,
-	}
 	existingPods := &corev1.PodList{}
-	//1:获取name对应的所以的pod列表
+	//获取name对应的所以的pod列表
 	err = r.client.List(context.TODO(), existingPods, &client.ListOptions{
 		Namespace:     request.Namespace,
-		LabelSelector: labels.SelectorFromSet(lbls),
+		LabelSelector: labels.SelectorFromSet(label),
 	})
-	for _,p:= range existingPods.Items{
-		fmt.Printf("------------> name:%s\n",p.Name)
-	}
 
 	if err != nil {
 		reqLogger.Error(err, "取已经存在的pod失败")
 		return reconcile.Result{}, err
 	}
 
-	//2:取到pod列表中的pod name
+	//取到pod列表中的pod name
 	var existingPodNames []string
 	for _, pod := range existingPods.Items {
 		if pod.GetObjectMeta().GetDeletionTimestamp() != nil {
@@ -153,70 +150,101 @@ func (r *ReconcileClass) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	}
 
-	//3:update pod.status !=运行中的status
-	//比较 DeepEqual
-	status := k8sv1.ClassStatus{ //期望的status
-		PodNames: existingPodNames,
-		Replicas: len(existingPodNames),
+	reqLogger.Info("existingPodNames","size",len(existingPodNames))
+
+	//pod数量为0，进行初始化
+	if len(existingPodNames) == 0 {
+		reqLogger.Info("初始化创建Pod:", "existingPodNames",
+			existingPodNames,"replicas", instance.Spec.Replicas)
+		//create deploy
+		return r.createDeploy(instance)
 	}
 
-	if !reflect.DeepEqual(instance.Status, status) {
-		if int(*instance.Spec.Replicas) == status.Replicas{
-			status.Status = "Ready"
-		}else{
-			status.Status = "Not Ready"
-		}
+	////期望的status
+	status := k8sv1.ClassStatus{
+		PodNames: existingPodNames,
+		Replicas: len(existingPodNames),
+		Status: GetStatus(len(existingPodNames)),
+	}
 
-		instance.Status = status //把期望状态给运行态
+	reqLogger.Info("instance podStatus","status",instance.Status)
+
+	//对比两个状态是否一致，如果不一致则进行更新
+	if !reflect.DeepEqual(instance.Status, status) {
+		reqLogger.Info("更新pod的状态","status",status)
+		instance.Status = status
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "更新pod的状态失败")
 			return reconcile.Result{}, err
 		}
 	}
-
-	//4:len(pod)>运行中的len(pod.replace)，期望值小，需要scale down
+	//期望值小，需要scale down
+	reqLogger.Info("instance.Spec.Replicas","replicas",
+		instance.Spec.Replicas,"existingPodNames replicas",len(existingPodNames))
 	if len(existingPodNames) > int(*instance.Spec.Replicas) {
+		return r.scaleDown(len(existingPodNames),int(*instance.Spec.Replicas),existingPods,reqLogger)
+	}
+
+	//len(pod)<运行中的len(pod.replace)，期望值大，需要scale up create
+	if len(existingPodNames) < int(*instance.Spec.Replicas){
+		return r.scaleUp(existingPodNames,instance,&request,reqLogger)
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// scaleUp
+func (r *ReconcileClass) scaleUp(existingPodNames []string,instance *schoolv1.Class,
+	request *reconcile.Request,reqLogger logr.Logger) (reconcile.Result, error) {
+	if len(existingPodNames) < int(*instance.Spec.Replicas) {
+		//create
+		reqLogger.Info("正在创建Pod,当前的podnames和期望的Replicas:", "existingPodNames",existingPodNames,
+			"Spec.Replicas",instance.Spec.Replicas)
+		deploy := &appsv1.Deployment{}
+		if err := r.client.Get(context.TODO(), request.NamespacedName, deploy); err != nil && errors.IsNotFound(err) {
+			//创建 Deploy
+			return r.createDeploy(instance)
+		}
+		// Pod already exists - don't requeue
+		reqLogger.Info("Skip reconcile: deploy already exists",
+			"deploy.Namespace", deploy.Namespace, "Pod.Name", deploy.Name)
+	}
+	return reconcile.Result{},nil
+}
+
+//scale len(pod)>运行中的len(pod.replace)，期望值小，需要scale down
+func (r *ReconcileClass)scaleDown(exitsSize int,sepcReplics int,existingPods *corev1.PodList,
+	reqLogger logr.Logger) (reconcile.Result, error) {
+	if exitsSize > sepcReplics {
 		//delete
-		reqLogger.Info("正在删除Pod,当前的podnames和期望的Replicas:", existingPodNames, instance.Spec.Replicas)
 		pod := existingPods.Items[0]
+		reqLogger.Info("正在删除Pod,当前的podnames和期望的Replicas:",
+			"exitsPod",pod, "Spec.Replicas",sepcReplics)
 		err := r.client.Delete(context.TODO(), &pod)
 		if err != nil {
 			reqLogger.Error(err, "删除pod失败")
 			return reconcile.Result{}, err
 		}
 	}
+	return reconcile.Result{}, nil
+}
 
-	//5:len(pod)<运行中的len(pod.replace)，期望值大，需要scale up create
-	fmt.Println("------------existingPodNames",len(existingPodNames))
-	fmt.Println("---------------instance.Spec.Replicas",*instance.Spec.Replicas)
-	if len(existingPodNames) < int(*instance.Spec.Replicas) {
-		//create
-		reqLogger.Info("正在创建Pod,当前的podnames和期望的Replicas:", existingPodNames, instance.Spec.Replicas)
-		deploy := &appsv1.Deployment{}
-		if err := r.client.Get(context.TODO(), request.NamespacedName, deploy); err != nil && errors.IsNotFound(err) {
-			// 创建关联资源
-			// 1. 创建 Deploy
-			deploy := NewDeploy(instance)
-			if err := r.client.Create(context.TODO(), deploy); err != nil {
-				return reconcile.Result{}, err
-			}
+func (r *ReconcileClass) createDeploy(instance *schoolv1.Class) (reconcile.Result, error)  {
 
-			// 2. 关联 Annotations
-			data, _ := json.Marshal(instance.Spec)
-			if instance.Annotations != nil {
-				instance.Annotations["spec"] = string(data)
-			} else {
-				instance.Annotations = map[string]string{"spec": string(data)}
-			}
-			if err := r.client.Update(context.TODO(), instance); err != nil {
-				return reconcile.Result{}, nil
-			}
-			return reconcile.Result{}, nil
-		}
-		// Pod already exists - don't requeue
-		reqLogger.Info("Skip reconcile: deploy already exists", "deploy.Namespace", deploy.Namespace, "Pod.Name", deploy.Name)
-
+	deploy := NewDeploy(instance)
+	if err := r.client.Create(context.TODO(), deploy); err != nil {
+		return reconcile.Result{}, err
+	}
+	//关联 Annotations
+	data, _ := json.Marshal(instance.Spec)
+	if instance.Annotations != nil {
+		instance.Annotations["spec"] = string(data)
+	} else {
+		instance.Annotations = map[string]string{"spec": string(data)}
+	}
+	if err := r.client.Update(context.TODO(), instance); err != nil {
+		return reconcile.Result{}, nil
 	}
 	return reconcile.Result{}, nil
 }
@@ -245,6 +273,7 @@ func newPodForCR(cr *schoolv1.Class,num int) *corev1.Pod {
 }
 
 func NewDeploy(app *appv1.Class) *appsv1.Deployment {
+
 	labels := map[string]string{"app": app.Name}
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	return &appsv1.Deployment{
@@ -255,12 +284,11 @@ func NewDeploy(app *appv1.Class) *appsv1.Deployment {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      app.Name,
 			Namespace: app.Namespace,
-
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(app, schema.GroupVersionKind{
 					Group: v1.SchemeGroupVersion.Group,
 					Version: v1.SchemeGroupVersion.Version,
-					Kind: "AppService",
+					Kind: "Class",
 				}),
 			},
 		},

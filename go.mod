@@ -3,6 +3,7 @@ module github.com/school/school-operator
 go 1.13
 
 require (
+	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.1
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5

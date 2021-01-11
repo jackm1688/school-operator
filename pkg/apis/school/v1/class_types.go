@@ -28,16 +28,6 @@ type ClassSpec struct {
 	Image       string `json:"image"`
 }
 
-/**
-
-       #status 启用status子资源
-       status: {}
-       scale:
-         specReplicasPath: .spec.replicas
-         statusReplicasPath: .status.replicas
-         labelSelectorPath: .status.labelSelector
- */
-
 // ClassStatus defines the observed state of Class
 type ClassStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -45,7 +35,7 @@ type ClassStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	appsv1.DeploymentStatus `json:",inline"`
 	Replicas int `json:"replicas"`
-	PodNames []string `json:"podNames"`
+	PodNames []string `json:"podNames,omitempty"`
 	Status string `json:"status"`
 }
 
