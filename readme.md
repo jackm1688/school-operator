@@ -1,8 +1,8 @@
 原始状态信息:<br>
-![Image] (https://github.com/jackm1688/school-operator/blob/main/001.png)<br>
+<img src="001.png" raw=true /><br>
 更新之后的状态信息:<br>
-![Image] (https://github.com/jackm1688/school-operator/blob/main//002.png)<br>
-![Image] (https://github.com/jackm1688/school-operator/blob/main//003.png)<br>
+![Image] (https://github.com/jackm1688/school-operator/blob/main/002.png)<br>
+![Image] (https://github.com/jackm1688/school-operator/blob/main/003.png)<br>
 
 使用测试用例代码:<br>
 
