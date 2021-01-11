@@ -33,6 +33,17 @@ import (
 
 var log = logf.Log.WithName("controller_class")
 
+// GetStatus 获取更新状态
+func GetStatus(size int) string  {
+	switch  {
+	case size == 50:
+		return "Ready"
+	case size <50:
+		return "NotReady"
+	case size > 50:
+		return "Error"
+	}
+}
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -232,7 +243,6 @@ func newPodForCR(cr *schoolv1.Class,num int) *corev1.Pod {
 		},
 	}
 }
-
 
 func NewDeploy(app *appv1.Class) *appsv1.Deployment {
 	labels := map[string]string{"app": app.Name}

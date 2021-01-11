@@ -22,9 +22,9 @@ type ClassSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	ClassName string `json:"className"`
+	ClassName   string `json:"className"`
 	TeacherName string `json:"teacherName"` //班主任姓名
-	Replicas   *int32 `json:"replicas"`   //学生人数
+	Replicas    *int32 `json:"replicas"`    //学生人数
 	Image       string `json:"image"`
 }
 
@@ -47,7 +47,6 @@ type ClassStatus struct {
 	Replicas int `json:"replicas"`
 	PodNames []string `json:"podNames"`
 	Status string `json:"status"`
-
 }
 
 type ClassScale struct {
@@ -61,19 +60,22 @@ type ClassScale struct {
 type Class struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
 	Spec   ClassSpec   `json:"spec,omitempty"`
 	Status ClassStatus `json:"status,omitempty"`
 }
 
+type ClassAdditionalPrinterColumns struct {
+	ClassName   string `json:"className"`
+	TeacherName string `json:"teacherName"` //班主任姓名
+	Replicas    *int32 `json:"replicas"`    //学生人数
+}
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClassList contains a list of Class
 type ClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Class `json:"items"`
-
+	Items    []Class `json:"items"`
 }
 
 

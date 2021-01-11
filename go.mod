@@ -6,6 +6,7 @@ require (
 	github.com/go-logr/zapr v0.1.1
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/tools v0.0.0-20210108195828-e2f9c7f1fc8e // indirect
 	k8s.io/api v0.18.2
 	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v12.0.0+incompatible
