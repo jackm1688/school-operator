@@ -1,9 +1,0 @@
-apiVersion: school.crd.io/v1
-kind: Class
-metadata:
-  name: student
-spec:
-  className: 计算机应用二班
-  teacherName: 杰克
-  replicas: 11
-  image: gdsz.harbor.com/library/myhttp:v1

@@ -2,12 +2,11 @@ package operator
 
 import (
 	"testing"
-	"time"
 
 	"github.com/school/school-operator/models"
 )
 
-func GetCRFile() *CR {
+func GetCRFile() *CustomResource {
 	st := models.Student{
 		ApiVersion: "school.crd.io/v1",
 		Kind:       "Class",
@@ -22,8 +21,9 @@ func GetCRFile() *CR {
 		},
 	}
 
-	cr := CR{
+	cr := CustomResource{
 		YamlFileName: "student_cr.yaml",
+		YamlJsonName: "student_cr.json",
 		Stu:          &st,
 	}
 	return &cr
@@ -34,6 +34,16 @@ func TestGenYAMLFile(t *testing.T) {
 	cr := GetCRFile()
 
 	err := cr.GenYAMLFile()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestGenJSONFile(t *testing.T) {
+
+	cr := GetCRFile()
+
+	err := cr.GenJSONFile()
 	if err != nil {
 		t.Error(err)
 	}
@@ -78,7 +88,7 @@ func TestGetCR(t *testing.T) {
 // sclae cr resource
 func TestScaleCR(t *testing.T) {
 	cr := GetCRFile()
-	err := cr.ScaleCR(10)
+	err := cr.ScaleCR(8)
 	if err != nil {
 		t.Error(err)
 	}
@@ -92,20 +102,10 @@ func TestDescribe(t *testing.T) {
 	}
 }
 
-func TestCustomeScaleAndCheckResult(t *testing.T) {
+func TestGetStatus(t *testing.T) {
 	cr := GetCRFile()
-	var replics = 10
-	err := cr.CustomeScaleAndCheckResult(replics)
-	if err != nil {
-		t.Error(err)
-	}
-	time.Sleep(10 * time.Second)
 	_, status := cr.GetStatus()
 	t.Logf("status:%#v\n", status)
-	if status.Replicas == replics {
-		t.Logf("scale update sucess,status:%s,replics:%d, scaleReplics:%d\n", status.Status, replics, status.Replicas)
-	} else {
-		t.Logf("scale update failed,status:%s,replics:%d, scaleReplics:%d\n", status.Status, replics, status.Replicas)
-	}
+	t.Logf("scale update sucess,status:%s, scaleReplics:%d\n", status.Status, status.Replicas)
 
 }

@@ -36,17 +36,18 @@ var log = logf.Log.WithName("controller_class")
 
 const CLASS_SIZE int32 = 10 //默认班级人数容量
 // GetStatus 获取更新状态
-func GetStatus(size int) string  {
-	switch  {
+func GetStatus(size int) string {
+	switch {
 	case size == 10:
 		return "Ready"
-	case size <10:
+	case size < 10:
 		return "NotReady"
 	case size > 10:
 		return "Error"
 	}
 	return "Unknown"
 }
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -151,77 +152,91 @@ func (r *ReconcileClass) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	}
 
-	reqLogger.Info("existingPodNames","size",len(existingPodNames))
+	reqLogger.Info("existingPodNames", "size", len(existingPodNames))
 
 	//pod数量为0，进行初始化
 	if len(existingPodNames) == 0 {
 		reqLogger.Info("初始化创建Pod:", "existingPodNames",
-			existingPodNames,"replicas", instance.Spec.Replicas)
+			existingPodNames, "replicas", instance.Spec.Replicas)
 		//create deploy
 		return r.createDeploy(instance)
 	}
 
+	//期望的status
+	res, err := r.updateStatus(existingPodNames, instance, reqLogger)
+	if err != nil {
+		return res, err
+	}
+	//期望值小，需要scale down
+	reqLogger.Info("instance.Spec.Replicas", "replicas",
+		instance.Spec.Replicas, "existingPodNames replicas", len(existingPodNames))
+	if len(existingPodNames) > int(*instance.Spec.Replicas) {
+		_, _ = r.updateStatus(existingPodNames, instance, reqLogger)
+		return r.scaleDown(len(existingPodNames), int(*instance.Spec.Replicas), existingPods, reqLogger, instance, &request)
+	}
+
+	//len(pod)<运行中的len(pod.replace)，期望值大，需要scale up create
+	if len(existingPodNames) < int(*instance.Spec.Replicas) {
+		_, _ = r.updateStatus(existingPodNames, instance, reqLogger)
+		return r.scaleUp(existingPodNames, instance, &request, reqLogger)
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileClass) updateStatus(existingPodNames []string,
+	instance *schoolv1.Class, reqLogger logr.Logger) (reconcile.Result, error) {
 	////期望的status
 	status := k8sv1.ClassStatus{
 		PodNames: existingPodNames,
 		Replicas: len(existingPodNames),
-		Status: GetStatus(len(existingPodNames)),
+		Status:   GetStatus(len(existingPodNames)),
 	}
 	sort.Strings(instance.Status.PodNames)
 	sort.Strings(status.PodNames)
-	reqLogger.Info("instance podStatus","status",instance.Status)
+	reqLogger.Info("instance podStatus", "status", instance.Status)
 	//对比两个状态是否一致，如果不一致则进行更新
 	if !reflect.DeepEqual(instance.Status, status) {
-		reqLogger.Info("更新pod的状态","status",status)
+		reqLogger.Info("更新pod的状态", "status", status)
 		instance.Status = status
-		err = r.client.Status().Update(context.TODO(), instance)
+		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "更新pod的状态失败")
 			return reconcile.Result{}, err
 		}
 	}
-	//期望值小，需要scale down
-	reqLogger.Info("instance.Spec.Replicas","replicas",
-		instance.Spec.Replicas,"existingPodNames replicas",len(existingPodNames))
-	if len(existingPodNames) > int(*instance.Spec.Replicas) {
-		return r.scaleDown(len(existingPodNames),int(*instance.Spec.Replicas),existingPods,reqLogger,instance,&request)
-	}
-
-	//len(pod)<运行中的len(pod.replace)，期望值大，需要scale up create
-	if len(existingPodNames) < int(*instance.Spec.Replicas){
-		return r.scaleUp(existingPodNames,instance,&request,reqLogger)
-	}
 	return reconcile.Result{}, nil
 }
 
 // scaleUp
-func (r *ReconcileClass) scaleUp(existingPodNames []string,instance *schoolv1.Class,
-	request *reconcile.Request,reqLogger logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileClass) scaleUp(existingPodNames []string, instance *schoolv1.Class,
+	request *reconcile.Request, reqLogger logr.Logger) (reconcile.Result, error) {
 	if len(existingPodNames) < int(*instance.Spec.Replicas) {
 		//create
-		reqLogger.Info("正在创建Pod,当前的podnames和期望的Replicas:", "existingPodNames",existingPodNames,
-			"Spec.Replicas",instance.Spec.Replicas)
+		reqLogger.Info("正在创建Pod,当前的podnames和期望的Replicas:", "existingPodNames", existingPodNames,
+			"Spec.Replicas", instance.Spec.Replicas)
 		deploy := &appsv1.Deployment{}
-        //err != nil && errors.IsNotFound(err)
-		if err := r.client.Get(context.TODO(), request.NamespacedName,deploy); err == nil  {
+		//err != nil && errors.IsNotFound(err)
+		if err := r.client.Get(context.TODO(), request.NamespacedName, deploy); err == nil {
 			//创建 Deploy
-			return r.updateDeploy(instance)
-		}/*else{
+			//return r.updateDeploy(instance)
+		} /*else{
 			data,_ := json.Marshal(deploy)
 			fmt.Printf("%s\n",string(data))
 		}*/
+		return r.updateDeploy(instance)
 	}
-	return reconcile.Result{},nil
+
+	return reconcile.Result{}, nil
 }
 
 //scale len(pod)>运行中的len(pod.replace)，期望值小，需要scale down
-func (r *ReconcileClass)scaleDown(exitsSize int,sepcReplics int,existingPods *corev1.PodList,
-	reqLogger logr.Logger,instance *schoolv1.Class,request *reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileClass) scaleDown(exitsSize int, sepcReplics int, existingPods *corev1.PodList,
+	reqLogger logr.Logger, instance *schoolv1.Class, request *reconcile.Request) (reconcile.Result, error) {
 	if exitsSize > sepcReplics {
 		//delete
 		pod := existingPods.Items[0]
 		reqLogger.Info("正在删除Pod,当前的podnames和期望的Replicas:",
-			"exitsPod",pod.Name, "Spec.Replicas",sepcReplics)
+			"exitsPod", pod.Name, "Spec.Replicas", sepcReplics)
 		err := r.client.Delete(context.TODO(), &pod)
 		if err != nil {
 			reqLogger.Error(err, "删除pod失败")
@@ -229,7 +244,7 @@ func (r *ReconcileClass)scaleDown(exitsSize int,sepcReplics int,existingPods *co
 		}
 		deploy := &appsv1.Deployment{}
 		//err != nil && errors.IsNotFound(err)
-		if err := r.client.Get(context.TODO(), request.NamespacedName,deploy); err == nil  {
+		if err := r.client.Get(context.TODO(), request.NamespacedName, deploy); err == nil {
 			//创建 Deploy
 			//*instance.Spec.Replicas = *instance.Spec.Replicas -1
 			return r.updateDeploy(instance)
@@ -239,7 +254,7 @@ func (r *ReconcileClass)scaleDown(exitsSize int,sepcReplics int,existingPods *co
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileClass) createDeploy(instance *schoolv1.Class) (reconcile.Result, error)  {
+func (r *ReconcileClass) createDeploy(instance *schoolv1.Class) (reconcile.Result, error) {
 	deploy := NewDeploy(instance)
 	if err := r.client.Create(context.TODO(), deploy); err != nil {
 		return reconcile.Result{}, err
@@ -257,9 +272,7 @@ func (r *ReconcileClass) createDeploy(instance *schoolv1.Class) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-
-
-func (r *ReconcileClass) updateDeploy(instance *schoolv1.Class) (reconcile.Result, error)  {
+func (r *ReconcileClass) updateDeploy(instance *schoolv1.Class) (reconcile.Result, error) {
 	deploy := NewDeploy(instance)
 	if err := r.client.Update(context.TODO(), deploy); err != nil {
 		return reconcile.Result{}, err
@@ -278,9 +291,9 @@ func (r *ReconcileClass) updateDeploy(instance *schoolv1.Class) (reconcile.Resul
 }
 
 // newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *schoolv1.Class,num int) *corev1.Pod {
+func newPodForCR(cr *schoolv1.Class, num int) *corev1.Pod {
 	labels := map[string]string{
-		"app": fmt.Sprintf("%s-%d",cr.Name,num),
+		"app": fmt.Sprintf("%s-%d", cr.Name, num),
 	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -314,9 +327,9 @@ func NewDeploy(app *appv1.Class) *appsv1.Deployment {
 			Namespace: app.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(app, schema.GroupVersionKind{
-					Group: v1.SchemeGroupVersion.Group,
+					Group:   v1.SchemeGroupVersion.Group,
 					Version: v1.SchemeGroupVersion.Version,
-					Kind: "Class",
+					Kind:    "Class",
 				}),
 			},
 		},
@@ -344,7 +357,7 @@ func newContainers(app *v1.Class) []corev1.Container {
 	}*/
 	return []corev1.Container{
 		{
-			Name: app.Name,
+			Name:  app.Name,
 			Image: app.Spec.Image,
 			//Resources: app.Spec.Resources,
 			//Ports: containerPorts,
